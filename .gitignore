@@ -1,0 +1,5 @@
+commands.json
+app.log
+*.ipynb
+__pycache__
+.env
