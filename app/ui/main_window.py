@@ -34,8 +34,7 @@ class MainWindow(QMainWindow):
 
         # Initialize managers
         self.config_manager = ConfigManager()
-        self.output = QTextEdit()
-        self.process_manager = ProcessManager(self.output)  # Pass QTextEdit instance
+        self.process_manager = ProcessManager()  # Removed QTextEdit instance
 
         # Create timer for checking process status
         self.status_timer = QTimer()
@@ -90,7 +89,10 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.group_tab, "Groups")
 
         # Output
-        layout.addWidget(self.output)
+        self.outputs = {}
+        self.output_tab = QTabWidget()
+        self.output_tab.setTabsClosable(True)
+        layout.addWidget(self.output_tab)
 
         # Status bar
         self.status_label = QLabel("Ready")
@@ -117,9 +119,27 @@ class MainWindow(QMainWindow):
 
     def run_task(self, task: Task):
         """Run a specific task"""
-        if self.process_manager.start_task(task, self.output):  # Pass QTextEdit
+        logging.info(f"Running task {task.title}")
+
+        # Create a new QTextEdit for the task output
+        task_output_text = QTextEdit()
+        task_output_text.setReadOnly(True)  # Make it read-only
+        self.outputs[task.id] = task_output_text
+
+        # Create a new tab for the task
+        self.output_tab.addTab(task_output_text, task.title)
+
+        if task.id not in self.outputs:
+            logging.error(f"Task ID {task.id} not found in outputs.")
+            logging.info(f"Outputs: {self.outputs}")
+            return
+        if self.process_manager.start_task(
+            task, self.outputs[task.id]
+        ):  # Pass the current output widget
             self.update_task_status(task.id, True)
             self.status_label.setText(f"Started: {task.title}")
+            # Start the task and connect its output to the QTextEdit
+            self.process_manager.start_task(task, self.outputs[task.id])
 
     def run_group(self, group_name: str):
         """Run all tasks in a group"""

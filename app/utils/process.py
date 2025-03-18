@@ -18,14 +18,13 @@ conv = Ansi2HTMLConverter()
 
 
 class ProcessManager(QObject):
-    output_received = pyqtSignal(str)  # Define a signal
+    output_received = pyqtSignal(str, QTextEdit)  # Define a signal
 
-    def __init__(self, output_widget: QTextEdit):
+    def __init__(self):
         super().__init__()
         self.running_tasks: Dict[str, subprocess.Popen] = {}
         self.output_received.connect(self.update_output)  # Connect signal to slot
         self.running_tasks: Dict[str, subprocess.Popen] = {}
-        self.output_widget = output_widget
 
     def start_task(self, task: Task, output_widget: QTextEdit) -> bool:
         """Start a task and return True if successful"""
@@ -56,7 +55,7 @@ class ProcessManager(QObject):
                     decoded_line = line.decode("utf-8")  # Decode the output
                     html_output = conv.convert(decoded_line)  # Convert ANSI to HTML
                     self.output_received.emit(
-                        f"{output_type}: {html_output}"
+                        html_output, output_widget
                     )  # Emit the signal
                 stream.close()
 
@@ -110,7 +109,5 @@ class ProcessManager(QObject):
             "stderr": task.stderr,
         }
 
-    def update_output(self, html_output: str):
-        self.output_widget.setHtml(
-            f"{self.output_widget.toHtml()}<div>{html_output}</div>"
-        )
+    def update_output(self, html_output: str, output_widget: QTextEdit):
+        output_widget.setHtml(f"{output_widget.toHtml()}<div>{html_output}</div>")
