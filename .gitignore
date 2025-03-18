@@ -3,3 +3,7 @@ app.log
 *.ipynb
 __pycache__
 .env
+.venv/*
+Lib/*
+Scripts/*
+pyvenv.cfg

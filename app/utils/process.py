@@ -1,14 +1,33 @@
 import subprocess
 import logging
+import threading
+
 from typing import Dict, Optional
+
+from colorama import init
+from PyQt6.QtWidgets import QTextEdit
+from PyQt6.QtCore import pyqtSignal, QObject
+from ansi2html import Ansi2HTMLConverter
+
 from ..models.task import Task
 
 
-class ProcessManager:
-    def __init__(self):
-        self.running_tasks: Dict[str, subprocess.Popen] = {}
+# Initialize colorama
+init()
+conv = Ansi2HTMLConverter()
 
-    def start_task(self, task: Task) -> bool:
+
+class ProcessManager(QObject):
+    output_received = pyqtSignal(str)  # Define a signal
+
+    def __init__(self, output_widget: QTextEdit):
+        super().__init__()
+        self.running_tasks: Dict[str, subprocess.Popen] = {}
+        self.output_received.connect(self.update_output)  # Connect signal to slot
+        self.running_tasks: Dict[str, subprocess.Popen] = {}
+        self.output_widget = output_widget
+
+    def start_task(self, task: Task, output_widget: QTextEdit) -> bool:
         """Start a task and return True if successful"""
         try:
             if task.id in self.running_tasks:
@@ -28,10 +47,25 @@ class ProcessManager:
             process = subprocess.Popen(
                 full_cmd,
                 creationflags=subprocess.CREATE_NEW_CONSOLE,
-                # stdout=subprocess.PIPE,
-                # stderr=subprocess.PIPE,
-                # text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
+
+            def stream_output(stream, output_type):
+                for line in iter(stream.readline, b""):
+                    decoded_line = line.decode("utf-8")  # Decode the output
+                    html_output = conv.convert(decoded_line)  # Convert ANSI to HTML
+                    self.output_received.emit(
+                        f"{output_type}: {html_output}"
+                    )  # Emit the signal
+                stream.close()
+
+            threading.Thread(
+                target=stream_output, args=(process.stdout, "STDOUT")
+            ).start()
+            threading.Thread(
+                target=stream_output, args=(process.stderr, "STDERR")
+            ).start()
 
             self.running_tasks[task.id] = process
             return True
@@ -75,3 +109,8 @@ class ProcessManager:
             "stdout": task.stdout,
             "stderr": task.stderr,
         }
+
+    def update_output(self, html_output: str):
+        self.output_widget.setHtml(
+            f"{self.output_widget.toHtml()}<div>{html_output}</div>"
+        )

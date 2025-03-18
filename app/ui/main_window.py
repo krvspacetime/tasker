@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (
     QMainWindow,
+    QTextEdit,
     QWidget,
     QVBoxLayout,
     QPushButton,
@@ -33,7 +34,8 @@ class MainWindow(QMainWindow):
 
         # Initialize managers
         self.config_manager = ConfigManager()
-        self.process_manager = ProcessManager()
+        self.output = QTextEdit()
+        self.process_manager = ProcessManager(self.output)  # Pass QTextEdit instance
 
         # Create timer for checking process status
         self.status_timer = QTimer()
@@ -87,6 +89,9 @@ class MainWindow(QMainWindow):
         group_layout.addWidget(self.group_list)
         self.tabs.addTab(self.group_tab, "Groups")
 
+        # Output
+        layout.addWidget(self.output)
+
         # Status bar
         self.status_label = QLabel("Ready")
         layout.addWidget(self.status_label)
@@ -112,7 +117,7 @@ class MainWindow(QMainWindow):
 
     def run_task(self, task: Task):
         """Run a specific task"""
-        if self.process_manager.start_task(task):
+        if self.process_manager.start_task(task, self.output):  # Pass QTextEdit
             self.update_task_status(task.id, True)
             self.status_label.setText(f"Started: {task.title}")
 
