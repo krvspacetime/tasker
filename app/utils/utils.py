@@ -1,7 +1,5 @@
 import re
-
-# Initialize colorama
-# init()
+import yaml
 
 
 def strip_ansi_codes(text):
@@ -24,3 +22,13 @@ def ansi_to_html(text):
         text = text.replace(ansi_code, html_tag)
 
     return text
+
+
+def load_config_yaml():
+    with open("config.yaml", "r") as file:
+        return yaml.safe_load(file)
+
+
+def save_config_yaml(config):
+    with open("config.yaml", "w") as file:
+        yaml.dump(config, file)

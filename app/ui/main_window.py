@@ -1,3 +1,6 @@
+import logging
+import os
+
 from PyQt6.QtWidgets import (
     QMainWindow,
     QTextEdit,
@@ -21,9 +24,7 @@ from ..utils.process import ProcessManager
 from .task_widget import TaskWidget
 from .group_widget import GroupWidget
 from .task_dialog import TaskEditDialog
-
-import logging
-import os
+from app.settings.settings_dialog import SettingsDialog
 
 
 class MainWindow(QMainWindow):
@@ -62,6 +63,11 @@ class MainWindow(QMainWindow):
         # Create Group button
         group_btn = QPushButton("Create Group")
         main_controls.addWidget(group_btn)
+
+        # Settings
+        settings_btn = QPushButton("Settings")
+        settings_btn.clicked.connect(self.open_settings)
+        main_controls.addWidget(settings_btn)
 
         # Tabs for Tasks and Groups
         self.tabs = QTabWidget()
@@ -340,3 +346,7 @@ class MainWindow(QMainWindow):
         )
         if directory:
             self.path_input.setText(directory)
+
+    def open_settings(self):
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.exec()

@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QWidget,
 )
+from app.utils.utils import load_config_yaml
 from ..models.task import Task
 
 COMMANDS_JSON_PATH = os.path.join(os.getcwd(), "commands.json")
@@ -80,10 +81,11 @@ class TaskEditDialog(QDialog):
 
     def browse_directory(self):
         """Open file dialog to select a directory"""
+        config = load_config_yaml()
         directory = QFileDialog.getExistingDirectory(
             self,
             "Select Directory",
-            self.path_input.text() or "",
+            config["settings"]["default_path"],
             QFileDialog.Option.ShowDirsOnly,
         )
         if directory:
