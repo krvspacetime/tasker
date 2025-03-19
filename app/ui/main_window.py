@@ -18,12 +18,12 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
 )
 from PyQt6.QtCore import QTimer
-from ..models.task import Task
-from ..utils.config import ConfigManager
-from ..utils.process import ProcessManager
-from .task_widget import TaskWidget
-from .group_widget import GroupWidget
-from .task_dialog import TaskEditDialog
+from app.models.task import Task
+from app.utils.config import ConfigManager
+from app.utils.process import ProcessManager
+from app.ui.task_widget import TaskWidget
+from app.ui.group_widget import GroupWidget
+from app.ui.task_dialog import TaskEditDialog
 from app.settings.settings_dialog import SettingsDialog
 
 

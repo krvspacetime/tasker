@@ -4,7 +4,4 @@ app.log
 __pycache__
 .env
 .venv/*
-Lib/*
-Scripts/*
-pyvenv.cfg
 config.yaml

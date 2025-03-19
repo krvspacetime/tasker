@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 from app.utils.utils import load_config_yaml
-from ..models.task import Task
+from app.models.task import Task
 
 COMMANDS_JSON_PATH = os.path.join(os.getcwd(), "commands.json")
 

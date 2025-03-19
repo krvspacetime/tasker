@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QTextEdit
 from PyQt6.QtCore import pyqtSignal, QObject
 from ansi2html import Ansi2HTMLConverter
 
-from ..models.task import Task
+from app.models.task import Task
 
 
 # Initialize colorama

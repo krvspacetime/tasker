@@ -1,8 +1,9 @@
+from typing import List
 from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import pyqtSignal
-from typing import List
-from ..models.task import Task
-from .task_widget import TaskWidget
+from app.models.task import Task
+from app.ui.task_widget import TaskWidget
+
 
 class GroupWidget(QWidget):
     run_group_clicked = pyqtSignal(str)
@@ -29,7 +30,9 @@ class GroupWidget(QWidget):
         # Connect signals
         run_group_btn.clicked.connect(lambda: self.run_group_clicked.emit(self.name))
         edit_group_btn.clicked.connect(lambda: self.edit_group_clicked.emit(self.name))
-        delete_group_btn.clicked.connect(lambda: self.delete_group_clicked.emit(self.name))
+        delete_group_btn.clicked.connect(
+            lambda: self.delete_group_clicked.emit(self.name)
+        )
 
         # Add widgets to header layout
         header_layout.addWidget(group_label)

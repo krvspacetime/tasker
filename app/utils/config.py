@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import Dict, List
-from ..models.task import Task
+from app.models.task import Task
 
 CONFIG_FILE = "commands.json"
 

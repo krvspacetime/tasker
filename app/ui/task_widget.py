@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import pyqtSignal
-from ..models.task import Task
+from app.models.task import Task
 
 
 class TaskWidget(QWidget):
