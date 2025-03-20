@@ -1,19 +1,15 @@
 import subprocess
 import logging
 import threading
+import psutil  # New import for better process handling
 
 from typing import Dict, Optional
-
-from colorama import init
 from PyQt6.QtWidgets import QTextEdit
 from PyQt6.QtCore import pyqtSignal, QObject
 from ansi2html import Ansi2HTMLConverter
 
 from app.models.task import Task
 
-
-# Initialize colorama
-init()
 conv = Ansi2HTMLConverter()
 
 
@@ -24,30 +20,26 @@ class ProcessManager(QObject):
         super().__init__()
         self.running_tasks: Dict[str, subprocess.Popen] = {}
         self.output_received.connect(self.update_output)  # Connect signal to slot
-        self.running_tasks: Dict[str, subprocess.Popen] = {}
 
     def start_task(self, task: Task, output_widget: QTextEdit) -> bool:
         """Start a task and return True if successful"""
         try:
             if task.id in self.running_tasks:
-                # Check if the process is actually still running
                 if self.check_task_status(task.id) is not None:
-                    # Process has finished, clean it up
                     self.cleanup_task(task.id)
                 else:
-                    # Process is still running
                     logging.info(f"Task {task.title} is already running")
                     return False
 
-            # Use subprocess to launch the command in a new window
-            full_cmd = f'cmd /k "cd /d "{task.path}" && {task.cmd}"'
-            logging.info(f"Executing: {full_cmd}")
+            logging.info(f"Starting task in {task.path} with command: {task.cmd}")
 
             process = subprocess.Popen(
-                full_cmd,
-                creationflags=subprocess.CREATE_NEW_CONSOLE,
+                ["cmd", "/c", task.cmd],
+                cwd=task.path,
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,  # Allow process tree control
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
+                shell=False,  # Avoid extra shell layer
             )
 
             def stream_output(stream, output_type):
@@ -57,13 +49,12 @@ class ProcessManager(QObject):
                     self.output_received.emit(
                         html_output, output_widget
                     )  # Emit the signal
-                stream.close()
 
             threading.Thread(
-                target=stream_output, args=(process.stdout, "STDOUT")
+                target=stream_output, args=(process.stdout, "STDOUT"), daemon=True
             ).start()
             threading.Thread(
-                target=stream_output, args=(process.stderr, "STDERR")
+                target=stream_output, args=(process.stderr, "STDERR"), daemon=True
             ).start()
 
             self.running_tasks[task.id] = process
@@ -73,41 +64,56 @@ class ProcessManager(QObject):
             logging.error(f"Error running {task.title}: {str(e)}")
             return False
 
-    def check_task_status(self, task_id: str) -> Optional[int]:
-        """Check if a task is still running. Returns None if running, or return code if finished"""
+    def stop_task(self, task_id: str) -> None:
+        """Ensure full process termination, including child processes"""
         if task_id not in self.running_tasks:
-            return -1  # Task not found
+            logging.warning(f"Task {task_id} not found in running tasks")
+            raise ValueError(f"Task {task_id} not found in running tasks")
 
         process = self.running_tasks[task_id]
-        return process.poll()
+        logging.info(f"Attempting to terminate task {task_id}")
+
+        try:
+            # Use psutil to find all children and terminate them
+            parent = psutil.Process(process.pid)
+            children = parent.children(recursive=True)
+            for child in children:
+                logging.info(f"Terminating child process {child.pid}")
+                child.terminate()
+
+            # Terminate parent process
+            process.terminate()
+            process.wait(timeout=2)
+
+            # Check if any processes are still running, force kill if needed
+            for child in children:
+                if child.is_running():
+                    logging.warning(f"Force killing child process {child.pid}")
+                    child.kill()
+
+            if parent.is_running():
+                logging.warning(f"Force killing parent process {parent.pid}")
+                parent.kill()
+
+            logging.info(f"Task {task_id} terminated successfully")
+
+        except Exception as e:
+            logging.error(f"Error terminating process {task_id}: {str(e)}")
+
+        finally:
+            self.cleanup_task(task_id)
+
+    def check_task_status(self, task_id: str) -> Optional[int]:
+        """Check if a task is still running"""
+        if task_id not in self.running_tasks:
+            return -1  # Task not found
+        return self.running_tasks[task_id].poll()
 
     def cleanup_task(self, task_id: str) -> None:
-        """Remove a task from running tasks"""
+        """Remove task from tracking"""
         if task_id in self.running_tasks:
             del self.running_tasks[task_id]
             logging.info(f"Cleaned up task {task_id}")
-
-    def stop_task(self, task_id: str) -> None:
-        """Stop a running task"""
-        if task_id in self.running_tasks:
-            process = self.running_tasks[task_id]
-            try:
-                process.terminate()
-            except Exception as e:
-                logging.error(f"Error terminating process: {str(e)}")
-            finally:
-                self.cleanup_task(task_id)
-
-    def get_task_output(self, task_id: str) -> str:
-        """Get the output of a finished task"""
-        if task_id not in self.finished_tasks:
-            return None
-        task = self.finished_tasks[task_id]
-        return {
-            "return_code": task.returncode,
-            "stdout": task.stdout,
-            "stderr": task.stderr,
-        }
 
     def update_output(self, html_output: str, output_widget: QTextEdit):
         output_widget.setHtml(f"{output_widget.toHtml()}<div>{html_output}</div>")

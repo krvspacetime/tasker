@@ -98,6 +98,7 @@ class MainWindow(QMainWindow):
         self.outputs = {}
         self.output_tab = QTabWidget()
         self.output_tab.setTabsClosable(True)
+        self.output_tab.tabCloseRequested.connect(self.close_output_tab)
         layout.addWidget(self.output_tab)
 
         # Status bar
@@ -132,20 +133,15 @@ class MainWindow(QMainWindow):
         task_output_text.setReadOnly(True)  # Make it read-only
         self.outputs[task.id] = task_output_text
 
-        # Create a new tab for the task
-        self.output_tab.addTab(task_output_text, task.title)
+        # Create a new tab for the task with consistent format "Title | ID"
+        tab_title = f"{task.title} | {task.id}"
+        self.output_tab.addTab(task_output_text, tab_title)
+        logging.info(f"Created tab with title: {tab_title}")
 
-        if task.id not in self.outputs:
-            logging.error(f"Task ID {task.id} not found in outputs.")
-            logging.info(f"Outputs: {self.outputs}")
-            return
-        if self.process_manager.start_task(
-            task, self.outputs[task.id]
-        ):  # Pass the current output widget
+        # Start the task and connect its output to the QTextEdit
+        if self.process_manager.start_task(task, self.outputs[task.id]):
             self.update_task_status(task.id, True)
             self.status_label.setText(f"Started: {task.title}")
-            # Start the task and connect its output to the QTextEdit
-            self.process_manager.start_task(task, self.outputs[task.id])
 
     def run_group(self, group_name: str):
         """Run all tasks in a group"""
@@ -350,3 +346,53 @@ class MainWindow(QMainWindow):
     def open_settings(self):
         settings_dialog = SettingsDialog(self)
         settings_dialog.exec()
+
+    def close_output_tab(self, index):
+        # Get the task ID from the tab text
+        tab_text = self.output_tab.tabText(index)
+        logging.info(f"Closing tab with text: {tab_text}")
+
+        # Extract the task ID - handle both formats "Title | ID" and other formats
+        parts = tab_text.split(" | ")
+        if len(parts) >= 2:
+            task_id = parts[1].strip()
+        else:
+            # If the format is different, try to find the task ID in the running tasks
+            # by matching the title with the task title
+            task_title = tab_text.strip()
+            task_id = None
+            for tid, task in [
+                (tid, t)
+                for tid, t in zip(
+                    self.process_manager.running_tasks.keys(), self.config_manager.tasks
+                )
+                if t.title == task_title
+            ]:
+                task_id = tid
+                break
+
+            if not task_id:
+                logging.error(f"Could not extract task ID from tab text: {tab_text}")
+                # Remove the tab anyway
+                self.output_tab.removeTab(index)
+                return
+
+        logging.info(f"Closing tab for task ID: {task_id}")
+
+        try:
+            # Stop the task if it's running
+            if task_id in self.process_manager.running_tasks:
+                self.process_manager.stop_task(task_id)
+                logging.info(f"Successfully stopped task {task_id}")
+
+            # Remove the tab and update status
+            self.output_tab.removeTab(index)
+            self.update_task_status(task_id, False)
+            # Clean up the output widget
+            if task_id in self.outputs:
+                self.outputs.pop(task_id)
+                logging.info(f"Removed task with ID: {task_id} from outputs.")
+        except Exception as e:
+            logging.error(f"Unable to close output tab gracefully: {e}")
+            # Remove the tab anyway
+            self.output_tab.removeTab(index)
