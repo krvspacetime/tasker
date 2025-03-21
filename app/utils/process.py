@@ -1,9 +1,9 @@
 import subprocess
 import logging
-import threading
-import psutil  # New import for better process handling
-
+import psutil
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Optional
+
 from PyQt6.QtWidgets import QTextEdit
 from PyQt6.QtCore import pyqtSignal, QObject
 from ansi2html import Ansi2HTMLConverter
@@ -14,58 +14,67 @@ conv = Ansi2HTMLConverter()
 
 
 class ProcessManager(QObject):
-    output_received = pyqtSignal(str, QTextEdit)  # Define a signal
+    output_received = pyqtSignal(str, QTextEdit)  # Signal for UI updates
 
     def __init__(self):
         super().__init__()
         self.running_tasks: Dict[str, subprocess.Popen] = {}
-        self.output_received.connect(self.update_output)  # Connect signal to slot
+        self.executor = ThreadPoolExecutor(max_workers=10)  # Limit concurrent tasks
+        self.output_received.connect(self.update_output)  # Connect signal to UI slot
 
     def start_task(self, task: Task, output_widget: QTextEdit) -> bool:
-        """Start a task and return True if successful"""
+        """Start a new task in a separate thread."""
+        if task.id in self.running_tasks:
+            if self.check_task_status(task.id) is not None:
+                self.cleanup_task(task.id)
+            else:
+                logging.info(f"Task {task.title} is already running")
+                return False
+
+        logging.info(f"Starting task in {task.path} with command: {task.cmd}")
+
         try:
-            if task.id in self.running_tasks:
-                if self.check_task_status(task.id) is not None:
-                    self.cleanup_task(task.id)
-                else:
-                    logging.info(f"Task {task.title} is already running")
-                    return False
-
-            logging.info(f"Starting task in {task.path} with command: {task.cmd}")
-
             process = subprocess.Popen(
                 ["cmd", "/c", task.cmd],
                 cwd=task.path,
-                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,  # Allow process tree control
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                shell=False,  # Avoid extra shell layer
+                creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                shell=False,  # Avoid unnecessary shell overhead
             )
 
-            def stream_output(stream, output_type):
-                for line in iter(stream.readline, b""):
-                    decoded_line = line.decode("utf-8")  # Decode the output
-                    html_output = conv.convert(decoded_line)  # Convert ANSI to HTML
-                    self.output_received.emit(
-                        html_output, output_widget
-                    )  # Emit the signal
-
-            threading.Thread(
-                target=stream_output, args=(process.stdout, "STDOUT"), daemon=True
-            ).start()
-            threading.Thread(
-                target=stream_output, args=(process.stderr, "STDERR"), daemon=True
-            ).start()
-
             self.running_tasks[task.id] = process
+
+            # Run output streaming in background threads
+            self.executor.submit(self._stream_output, process.stdout, output_widget)
+            self.executor.submit(self._stream_output, process.stderr, output_widget)
+
             return True
 
         except Exception as e:
             logging.error(f"Error running {task.title}: {str(e)}")
             return False
 
+    def _stream_output(self, stream, output_widget):
+        """Reads process output in real-time and updates UI in batches."""
+        batch_size = 5
+        output_buffer = []
+
+        for line in iter(stream.readline, b""):
+            decoded_line = line.decode("utf-8", errors="replace").strip()
+            html_output = conv.convert(decoded_line)
+            output_buffer.append(html_output)
+
+            if len(output_buffer) >= batch_size:
+                self.output_received.emit("".join(output_buffer), output_widget)
+                output_buffer.clear()
+
+        # Send remaining output
+        if output_buffer:
+            self.output_received.emit("".join(output_buffer), output_widget)
+
     def stop_task(self, task_id: str) -> None:
-        """Ensure full process termination, including child processes"""
+        """Ensure full process termination, including child processes."""
         if task_id not in self.running_tasks:
             logging.warning(f"Task {task_id} not found in running tasks")
             raise ValueError(f"Task {task_id} not found in running tasks")
@@ -74,18 +83,17 @@ class ProcessManager(QObject):
         logging.info(f"Attempting to terminate task {task_id}")
 
         try:
-            # Use psutil to find all children and terminate them
             parent = psutil.Process(process.pid)
             children = parent.children(recursive=True)
+
             for child in children:
                 logging.info(f"Terminating child process {child.pid}")
                 child.terminate()
 
-            # Terminate parent process
             process.terminate()
             process.wait(timeout=2)
 
-            # Check if any processes are still running, force kill if needed
+            # Ensure all processes are fully stopped
             for child in children:
                 if child.is_running():
                     logging.warning(f"Force killing child process {child.pid}")
@@ -104,16 +112,18 @@ class ProcessManager(QObject):
             self.cleanup_task(task_id)
 
     def check_task_status(self, task_id: str) -> Optional[int]:
-        """Check if a task is still running"""
-        if task_id not in self.running_tasks:
-            return -1  # Task not found
-        return self.running_tasks[task_id].poll()
+        """Check if a task is still running."""
+        return (
+            self.running_tasks.get(task_id, None).poll()
+            if task_id in self.running_tasks
+            else -1
+        )
 
     def cleanup_task(self, task_id: str) -> None:
-        """Remove task from tracking"""
-        if task_id in self.running_tasks:
-            del self.running_tasks[task_id]
-            logging.info(f"Cleaned up task {task_id}")
+        """Remove task from tracking."""
+        self.running_tasks.pop(task_id, None)
+        logging.info(f"Cleaned up task {task_id}")
 
     def update_output(self, html_output: str, output_widget: QTextEdit):
+        """Update the UI with new output."""
         output_widget.setHtml(f"{output_widget.toHtml()}<div>{html_output}</div>")
