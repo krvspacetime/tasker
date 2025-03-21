@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
 )
 from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QIcon
 from app.models.task import Task
 from app.utils.config import ConfigManager
 from app.utils.process import ProcessManager
@@ -45,6 +46,7 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.config_manager.load_config()
         self.update_displays()
+        self.setStyleSheet(open("app/ui/styles.qss").read())
 
     def init_ui(self):
         main_widget = QWidget()
@@ -57,15 +59,18 @@ class MainWindow(QMainWindow):
 
         # Add Task button
         add_btn = QPushButton("Create Task")
+        add_btn.setIcon(QIcon("app/icons/task.svg"))
         add_btn.clicked.connect(self.add_task)
         main_controls.addWidget(add_btn)
 
         # Create Group button
         group_btn = QPushButton("Create Group")
+        group_btn.setIcon(QIcon("app/icons/group.svg"))
         main_controls.addWidget(group_btn)
 
         # Settings
         settings_btn = QPushButton("Settings")
+        settings_btn.setIcon(QIcon("app/icons/settings.svg"))
         settings_btn.clicked.connect(self.open_settings)
         main_controls.addWidget(settings_btn)
 

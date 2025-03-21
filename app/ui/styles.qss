@@ -1,0 +1,28 @@
+QPushButton {
+    background-color: transparent; /* Green */
+    color: white; /* Text color */
+    border: none; /* No border */
+    padding: 1px 3px; /* Padding */
+    text-align: center; /* Center text */
+    text-decoration: none; /* No underline */
+    font-size: 12px; /* Font size */
+    margin: 4px 2px; /* Margin */
+    border-radius: 5px; /* Rounded corners */
+}
+
+QPushButton::hover {
+    background-color: #45a049; /* Darker green */
+}
+
+QTabBar::tab:selected {
+    background-color: #4CAF50; /* Text color */
+    color: #ffffff;
+}
+
+QTabBar::tab {
+    max-width: 200px; /* Set a maximum width */
+}
+
+QListWidget::item:selected {
+    background-color: #4CAF50;
+}

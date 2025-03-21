@@ -16,7 +16,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent=None):
         super(SettingsDialog, self).__init__(parent)
         self.setWindowTitle("Settings")
-        self.setGeometry(100, 100, 500, 200)
+        self.setGeometry(100, 100, 500, 100)
         self.config = self.load_config_yaml()
 
         layout = QVBoxLayout(self)

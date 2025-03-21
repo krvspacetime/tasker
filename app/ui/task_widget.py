@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtGui import QIcon
 from app.models.task import Task
 
 
@@ -27,9 +28,15 @@ class TaskWidget(QWidget):
         title_label = QLabel(self.task.title)
 
         # Create buttons
-        run_btn = QPushButton("Run")
-        edit_btn = QPushButton("Edit")
-        delete_btn = QPushButton("Delete")
+        run_btn = QPushButton()
+        run_btn.setIcon(QIcon("app/icons/run.svg"))
+        run_btn.setToolTip("Run Task")
+        edit_btn = QPushButton()
+        edit_btn.setIcon(QIcon("app/icons/edit.svg"))
+        edit_btn.setToolTip("Edit task")
+        delete_btn = QPushButton()
+        delete_btn.setIcon(QIcon("app/icons/delete.svg"))
+        delete_btn.setToolTip("Delete task")
 
         # Connect signals
         run_btn.clicked.connect(lambda: self.run_clicked.emit(self.task))
@@ -49,7 +56,9 @@ class TaskWidget(QWidget):
 
         # Add "Add to Group" button for ungrouped tasks
         if not self.group_name:
-            add_to_group_btn = QPushButton("Add to Group")
+            add_to_group_btn = QPushButton()
+            add_to_group_btn.setIcon(QIcon("app/icons/add_to_group.svg"))
+            add_to_group_btn.setToolTip("Add to Group")
             add_to_group_btn.clicked.connect(
                 lambda: self.add_to_group_clicked.emit(self.task)
             )
