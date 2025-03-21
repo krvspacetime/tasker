@@ -108,20 +108,28 @@ class TaskEditDialog(QDialog):
         if command and command not in self.commands_list:
             self.commands_list.append(command)
             self.save_commands()
+            current_text = self.cmd_input.currentText()  # Save current text
             self.cmd_input.clear()
             self.cmd_input.addItems(self.commands_list)
+            self.cmd_input.setCurrentText(current_text)  # Restore current text
 
     def load_commands(self):
         try:
             with open(COMMANDS_JSON_PATH, "r") as f:
                 data = json.load(f)
-                return [task["cmd"] for task in data["tasks"]]
+                cmds = set([task["cmd"] for task in data["tasks"]])
+                return list(cmds)
         except (FileNotFoundError, json.JSONDecodeError):
             return []
 
     def save_commands(self):
         tasks = []
         for cmd in self.commands_list:
-            tasks.append({"id": str(uuid.uuid4()), "cmd": cmd})
+            if cmd not in [
+                task["cmd"] for task in tasks
+            ]:  # Check if command already exists
+                tasks.append(
+                    {"id": str(uuid.uuid4()), "cmd": cmd}
+                )  # Append the dictionary
         with open(COMMANDS_JSON_PATH, "w") as f:
             json.dump({"tasks": tasks}, f, indent=4)
